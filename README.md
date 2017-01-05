@@ -14,4 +14,5 @@ Boilerplate template for my typical AppEngine apps.
 
 * Clone the repo and delete the `.git` folder.
 * Set the `application` name to app's name within the `app.yaml` file
-* Set the `ALLOWED_ORIGINS` value in the app.yaml file. If not using CORS, make it blank.
+* Set the `ALLOWED_ORIGINS` value in the dev.yaml and app.yaml file. If not using CORS, make it blank.
+* Create Google Cloud Storage default app buckets and update the dev.bat file bucket name
