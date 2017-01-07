@@ -39,6 +39,7 @@ func (h AuthHandler) ServeHTTP(c context.Context, w http.ResponseWriter, r *http
 //
 // 	POST /v1/auth
 //	{
+// 		"accountKey": "12352345",  			// passed in on initial signup only
 //  	"providerId": 21234234,
 //  	"providerName": "facebook",
 //  	"providerToken": "8a7wi2jrhfas...",

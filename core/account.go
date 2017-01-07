@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -85,15 +86,27 @@ func (s *AccountService) GetAllAccounts(c context.Context, offset, limit int) ([
 
 // GetAccountKeyByCredentials fetches the account matching the auth provider credentials
 func (s *AccountService) GetAccountKeyByCredentials(c context.Context, creds *Credentials) (*datastore.Key, error) {
-	// when creds are first created `key` will exist. Accessing them by key ensures we
-	// can fetch the credentials if they are not yet available on all dataservers
-	if creds.Key != nil {
-		return creds.Key.Parent(), nil
+	var err error
+	cstore := credentialStore{}
+	// on initial signup the account key will exist within the credentials
+	if creds.AccountKey != nil {
+		var accountCreds []*Credentials
+		_, err = cstore.GetByParent(c, creds.AccountKey, &accountCreds, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find credentials by parent account: %v", err)
+		}
+		// validate credentials
+		for _, ac := range accountCreds {
+			if ac.ProviderID == creds.ProviderID && ac.ProviderName == creds.ProviderName {
+				return creds.AccountKey, nil
+			}
+		}
+		return nil, errors.New("no matching credentials found for account")
 	}
 
-	store := newCredentialStore()
-	if len(creds.ProviderToken) > 0 {
-		return store.GetAccountKeyByProviderId(c, creds.ProviderID)
+	if len(creds.ProviderID) > 0 {
+		return cstore.GetAccountKeyByProvider(c, creds)
+	}
 	}
 	return store.GetAccountKeyByEmailAndPassword(c, creds.Username, creds.Password)
 }

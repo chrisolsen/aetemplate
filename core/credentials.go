@@ -14,10 +14,16 @@ import (
 type Credentials struct {
 	Model
 
+	// passed in on initial signup since looking up credentials by non-key cols
+	// may result in an empty dataset
+	AccountKey *datastore.Key `json:"accountKey" datastore:"-"`
+
 	// oauth
-	ProviderID    string `json:"providerId"`
-	ProviderToken string `json:"providerToken"`
-	ProviderName  string `json:"providerName"`
+	ProviderID   string `json:"providerId"`
+	ProviderName string `json:"providerName"`
+
+	// token is not saved
+	ProviderToken string `json:"providerToken" datastore:"-"`
 
 	// username / password
 	Username string `json:"username"`
@@ -66,9 +72,10 @@ func (s *credentialStore) Create(c context.Context, creds *Credentials, accountK
 	return s.Base.Create(c, creds, accountKey)
 }
 
-func (s *credentialStore) GetAccountKeyByProviderId(c context.Context, id string) (*datastore.Key, error) {
+func (s *credentialStore) GetAccountKeyByProvider(c context.Context, creds *Credentials) (*datastore.Key, error) {
 	keys, err := datastore.NewQuery(s.TableName).
-		Filter("ProviderID =", id).
+		Filter("ProviderID =", creds.ProviderID).
+		Filter("ProviderName =", creds.ProviderName).
 		KeysOnly().
 		GetAll(c, nil)
 
