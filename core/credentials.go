@@ -89,21 +89,3 @@ func (s *credentialStore) GetAccountKeyByProvider(c context.Context, creds *Cred
 
 	return keys[0].Parent(), nil
 }
-
-func (s *credentialStore) GetAccountKeyByEmailAndPassword(c context.Context, email, password string) (*datastore.Key, error) {
-	keys, err := datastore.NewQuery(s.TableName).
-		Filter("Email =", email).
-		Filter("Password =", password).
-		KeysOnly().
-		GetAll(c, nil)
-
-	if err != nil {
-		return nil, fmt.Errorf("finding account by username/password: %v", err)
-	}
-
-	if len(keys) == 0 {
-		return nil, errors.New("no account found matching the username/password")
-	}
-
-	return keys[0].Parent(), nil
-}

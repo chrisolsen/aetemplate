@@ -104,11 +104,27 @@ func (s *AccountService) GetAccountKeyByCredentials(c context.Context, creds *Cr
 		return nil, errors.New("no matching credentials found for account")
 	}
 
+	// by provider
 	if len(creds.ProviderID) > 0 {
 		return cstore.GetAccountKeyByProvider(c, creds)
 	}
+
+	// by username
+	var userNameCreds []*Credentials
+	_, err = cstore.GetByField(c, "Username =", creds.Username, &userNameCreds, nil)
+	if err != nil {
+		return nil, err
 	}
-	return store.GetAccountKeyByEmailAndPassword(c, creds.Username, creds.Password)
+
+	if len(userNameCreds) != 1 {
+		return nil, errors.New("unable to find unique credentials")
+	}
+
+	err = s.ValidatePassword(userNameCreds[0].Password, creds.Password)
+	if err != nil {
+		return nil, err
+	}
+	return userNameCreds[0].Key.Parent(), nil
 }
 
 type accountStore struct {
