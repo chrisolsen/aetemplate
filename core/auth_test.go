@@ -31,6 +31,7 @@ func TestEndpoints_Auth(t *testing.T) {
 
 	for _, ts := range tests {
 		ts.creds.Key = ckey
+		ts.creds.AccountKey = pkey // prevent the data propogation issue
 		func(test signupTest) {
 			authService := AuthService{
 				URLGetter: mockURLGetter{err: test.expectedErr, body: `{"id": "1234"}`},
