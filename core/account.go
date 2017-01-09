@@ -87,7 +87,7 @@ func (s *AccountService) GetAllAccounts(c context.Context, offset, limit int) ([
 // GetAccountKeyByCredentials fetches the account matching the auth provider credentials
 func (s *AccountService) GetAccountKeyByCredentials(c context.Context, creds *Credentials) (*datastore.Key, error) {
 	var err error
-	cstore := credentialStore{}
+	cstore := newCredentialStore()
 	// on initial signup the account key will exist within the credentials
 	if creds.AccountKey != nil {
 		var accountCreds []*Credentials
