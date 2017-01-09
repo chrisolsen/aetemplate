@@ -10,7 +10,7 @@ import (
 	"google.golang.org/appengine/datastore"
 )
 
-// AuthProvider is a child to Account
+// Credentials contain authentication details for various providers / methods
 type Credentials struct {
 	Model
 
