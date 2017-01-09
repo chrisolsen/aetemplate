@@ -53,6 +53,7 @@ func (s *credentialStore) Create(c context.Context, creds *Credentials, accountK
 	}
 
 	q := datastore.NewQuery(s.TableName)
+	q.Ancestor(accountKey)
 	q.KeysOnly()
 	if len(creds.ProviderID) > 0 {
 		q.Filter("ProviderID =", creds.ProviderID)
