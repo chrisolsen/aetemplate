@@ -30,10 +30,11 @@ type Credentials struct {
 	Password string `json:"password"`
 }
 
+// Valid indicates if the credentials are valid for one of the two credential types
 func (c *Credentials) Valid() bool {
 	p := len(c.ProviderID) > 0 && len(c.ProviderName) > 0 && len(c.ProviderToken) > 0
 	l := len(c.Username) > 0 && len(c.Password) > 0
-	return !p || !l
+	return p || l
 }
 
 type credentialStore struct {
