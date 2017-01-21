@@ -12,10 +12,10 @@ type URLGetter interface {
 }
 
 type AppEngineURLGetter struct {
-	ctx context.Context
+	Ctx context.Context
 }
 
 func (ug AppEngineURLGetter) Get(url string) (*http.Response, error) {
-	client := urlfetch.Client(ug.ctx)
+	client := urlfetch.Client(ug.Ctx)
 	return client.Get(url)
 }

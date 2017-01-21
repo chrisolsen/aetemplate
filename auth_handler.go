@@ -17,7 +17,7 @@ type AuthHandler struct {
 func (h AuthHandler) ServeHTTP(c context.Context, w http.ResponseWriter, r *http.Request) {
 	h.Bind(c, w, r)
 	svc := core.AuthService{
-		URLGetter: core.AppEngineURLGetter{},
+		URLGetter: core.AppEngineURLGetter{Ctx: c},
 	}
 	switch r.Method {
 	case http.MethodPost:
