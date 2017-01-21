@@ -1,4 +1,4 @@
-application: app_name
+application: appname
 runtime: go
 version: 1
 api_version: go1
@@ -6,6 +6,22 @@ api_version: go1
 env_variables:
     ALLOWED_ORIGINS: "https://my_app.com"
 
+# https://cloud.google.com/appengine/docs/go/config/appref#handlers_element
 handlers:
 - url: /v1/.*
   script: _go_app
+
+# all static files
+- url: /static
+  static_dir: static
+
+# all root html files
+- url: /(.*\.(html))$
+  static_files: \1
+  upload: \.(html)$
+
+# index.html for /
+- url: /
+  static_files: index.html
+  upload: index.html
+
