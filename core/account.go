@@ -2,7 +2,6 @@ package core
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -92,8 +91,8 @@ func (s *AccountService) GetAccountKeyByCredentials(c context.Context, creds *Cr
 	if creds.AccountKey != nil {
 		var accountCreds []*Credentials
 		_, err = cstore.GetByParent(c, creds.AccountKey, &accountCreds, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to find credentials by parent account: %v", err)
+		if err != nil || len(accountCreds) == 0 {
+			return nil, errors.New("failed to find credentials by parent account")
 		}
 		// validate credentials
 		for _, ac := range accountCreds {
