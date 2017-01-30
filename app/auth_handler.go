@@ -5,13 +5,13 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/chrisolsen/ae-template/core"
-	"github.com/chrisolsen/aehandler"
+	"github.com/chrisolsen/ae/handler"
+	"github.com/chrisolsen/aetemplate/core"
 	"golang.org/x/net/context"
 )
 
 type AuthHandler struct {
-	aehandler.Base
+	handler.Base
 }
 
 func (h AuthHandler) ServeHTTP(c context.Context, w http.ResponseWriter, r *http.Request) {
@@ -23,7 +23,7 @@ func (h AuthHandler) ServeHTTP(c context.Context, w http.ResponseWriter, r *http
 	case http.MethodPost:
 		h.authenticateUser(svc.Authenticate)
 	case http.MethodOptions:
-		h.ValidateOrigin([]string{"http://your_domain.com"})
+		h.ValidateOrigin(nil)
 	default:
 		h.Abort(http.StatusNotFound, nil)
 	}

@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/chrisolsen/aestore"
+	"github.com/chrisolsen/ae/model"
+	"github.com/chrisolsen/ae/store"
 
 	"golang.org/x/net/context"
 	"google.golang.org/appengine/datastore"
@@ -12,7 +13,7 @@ import (
 
 // Credentials contain authentication details for various providers / methods
 type Credentials struct {
-	Model
+	model.Base
 
 	// passed in on initial signup since looking up credentials by non-key cols
 	// may result in an empty dataset
@@ -37,17 +38,17 @@ func (c *Credentials) Valid() bool {
 	return p || l
 }
 
-type credentialStore struct {
-	aestore.Base
+type CredentialStore struct {
+	store.Base
 }
 
-func newCredentialStore() credentialStore {
-	s := credentialStore{}
+func NewCredentialStore() CredentialStore {
+	s := CredentialStore{}
 	s.TableName = "credentials"
 	return s
 }
 
-func (s *credentialStore) Create(c context.Context, creds *Credentials, accountKey *datastore.Key) (*datastore.Key, error) {
+func (s *CredentialStore) Create(c context.Context, creds *Credentials, accountKey *datastore.Key) (*datastore.Key, error) {
 	if !creds.Valid() {
 		return nil, errors.New("Invalid credentials")
 	}
@@ -74,7 +75,7 @@ func (s *credentialStore) Create(c context.Context, creds *Credentials, accountK
 	return s.Base.Create(c, creds, accountKey)
 }
 
-func (s *credentialStore) GetAccountKeyByProvider(c context.Context, creds *Credentials) (*datastore.Key, error) {
+func (s *CredentialStore) GetAccountKeyByProvider(c context.Context, creds *Credentials) (*datastore.Key, error) {
 	keys, err := datastore.NewQuery(s.TableName).
 		Filter("ProviderID =", creds.ProviderID).
 		Filter("ProviderName =", creds.ProviderName).
@@ -90,4 +91,9 @@ func (s *credentialStore) GetAccountKeyByProvider(c context.Context, creds *Cred
 	}
 
 	return keys[0].Parent(), nil
+}
+
+// GetByUsername .
+func (s *CredentialStore) GetByUsername(c context.Context, username string, dst interface{}) ([]*datastore.Key, error) {
+	return datastore.NewQuery(s.TableName).Filter("Username =", username).GetAll(c, dst)
 }

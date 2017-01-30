@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"gitlab.com/coachchris/core"
+	"github.com/chrisolsen/aetemplate/core"
 	"golang.org/x/net/context"
+	"google.golang.org/appengine"
 	"google.golang.org/appengine/datastore"
 	"google.golang.org/appengine/log"
 	"google.golang.org/appengine/memcache"
@@ -46,11 +47,71 @@ func (t *tokenDetails) willExpireIn(duration time.Duration) bool {
 	return t.Expiry.Before(future)
 }
 
-type AuthMiddleware struct {
-	tokenSvc core.TokenServicer
+// AuthMiddleware .
+type AuthMiddleware struct{}
+
+// FormAuth .
+func (a *AuthMiddleware) FormAuth(c context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+	var err error
+	var cookieName = "app-cookie"
+	c, cancel := context.WithCancel(c)
+
+	returnURL := fmt.Sprintf("/signin?returnUrl=%s", r.RequestURI)
+
+	cookie, err := r.Cookie(cookieName)
+	if err != nil {
+		http.Redirect(w, r, returnURL, http.StatusTemporaryRedirect)
+		cancel()
+		return c
+	}
+	tokenDetails, err := a.getTokenDetails(c, cookie.Value)
+	if err != nil {
+		http.Redirect(w, r, returnURL, http.StatusTemporaryRedirect)
+		cancel()
+		return c
+	}
+
+	// if token has expired return 401
+	if tokenDetails.isExpired() {
+		http.Redirect(w, r, returnURL, http.StatusTemporaryRedirect)
+		cancel()
+		return c
+	}
+
+	accountKey, err := datastore.DecodeKey(tokenDetails.AccountKey)
+	if err != nil {
+		http.Redirect(w, r, returnURL, http.StatusTemporaryRedirect)
+		cancel()
+		return c
+	}
+
+	// if the token's expiry less than a week away, get new token
+	if tokenDetails.willExpireIn(time.Hour * 24 * 7) {
+		newToken, err := a.getNewToken(c, accountKey)
+		if err != nil {
+			http.Redirect(w, r, returnURL, http.StatusTemporaryRedirect)
+			cancel()
+			return c
+		}
+
+		// send back the new token values
+		http.SetCookie(w, &http.Cookie{
+			Name:     cookieName,
+			Expires:  time.Now().Add(time.Hour * 24 * 14), // 2 weeks from now
+			HttpOnly: true,
+			Secure:   !appengine.IsDevAppServer(),
+			Value:    newToken.Value(),
+		})
+	}
+
+	// add accountKey to context
+	c = session.SetAccountKey(c, accountKey)
+
+	return c
 }
 
-func (a *AuthMiddleware) ApiAuth(c context.Context, w http.ResponseWriter, r *http.Request) context.Context {
+// APIAuth .
+func (a *AuthMiddleware) APIAuth(c context.Context, w http.ResponseWriter, r *http.Request) context.Context {
 	// let option requests through
 	if r.Method == http.MethodOptions {
 		return c
@@ -58,33 +119,45 @@ func (a *AuthMiddleware) ApiAuth(c context.Context, w http.ResponseWriter, r *ht
 
 	var err error
 	c, cancel := context.WithCancel(c)
-	defer func() {
-		if err != nil {
-			cancel()
-		}
-	}()
 
-	tokenDetails, err := a.getTokenDetails(c, r.Header.Get("Authorization"))
+	authHeader := r.Header.Get("Authorization")
+	if len(authHeader) <= len("token=") {
+		log.Errorf(c, "missing token header: %v", err)
+		w.WriteHeader(http.StatusUnauthorized)
+		cancel()
+		return c
+	}
+
+	// prevent token caching with blank string value
+	rawToken := authHeader[len("token="):]
+	if len(rawToken) == 0 {
+		log.Errorf(c, "missing token value: %v", err)
+		w.WriteHeader(http.StatusUnauthorized)
+		cancel()
+		return c
+	}
+
+	tokenDetails, err := a.getTokenDetails(c, rawToken)
 	if err != nil {
 		log.Errorf(c, "failed to get token details: %v", err)
-		w.WriteHeader(http.StatusPreconditionFailed)
+		w.WriteHeader(http.StatusUnauthorized)
+		cancel()
+		return c
+	}
+
+	// if token has expired return 401
+	if tokenDetails.isExpired() {
+		log.Errorf(c, "expired Token")
+		w.WriteHeader(http.StatusUnauthorized)
+		cancel()
 		return c
 	}
 
 	accountKey, err := datastore.DecodeKey(tokenDetails.AccountKey)
 	if err != nil {
 		log.Errorf(c, "failed to decode account key: %v", err)
-		w.WriteHeader(http.StatusPreconditionFailed)
-		return c
-	}
-
-	// add accountKey to context
-	c = session.SetAccountKey(c, accountKey)
-
-	// if token has expired return 401
-	if tokenDetails.isExpired() {
-		log.Errorf(c, "expired Token")
 		w.WriteHeader(http.StatusUnauthorized)
+		cancel()
 		return c
 	}
 
@@ -94,6 +167,7 @@ func (a *AuthMiddleware) ApiAuth(c context.Context, w http.ResponseWriter, r *ht
 		if err != nil {
 			log.Errorf(c, "failed to create new token: %v", err)
 			w.WriteHeader(http.StatusUnauthorized)
+			cancel()
 			return c
 		}
 
@@ -102,22 +176,15 @@ func (a *AuthMiddleware) ApiAuth(c context.Context, w http.ResponseWriter, r *ht
 		w.Header().Add(newTokenExpiryHeader, newToken.Expiry.Format(time.RFC3339))
 	}
 
+	// add accountKey to context
+	c = session.SetAccountKey(c, accountKey)
+
 	return c
 }
 
 // Gets the token for the rawToken value
-func (a *AuthMiddleware) getTokenDetails(c context.Context, authHeader string) (*tokenDetails, error) {
+func (a *AuthMiddleware) getTokenDetails(c context.Context, rawToken string) (*tokenDetails, error) {
 	var err error
-
-	if len(authHeader) <= len("token=") {
-		return nil, errMissingAuthHeader
-	}
-
-	// prevent token caching with blank string value
-	rawToken := authHeader[len("token="):]
-	if len(rawToken) == 0 {
-		return nil, errMissingAuthToken
-	}
 
 	tokenDetails, err := a.getCacheToken(c, rawToken)
 	if err != nil && err != memcache.ErrCacheMiss {
@@ -130,18 +197,17 @@ func (a *AuthMiddleware) getTokenDetails(c context.Context, authHeader string) (
 			return nil, fmt.Errorf("decoding token key: %v", err)
 		}
 
-		token, err := a.tokenSvc.Get(c, tokenKey)
+		var token core.Token
+		err = TokenStore.Get(c, tokenKey, &token)
 		if err != nil {
+			if err == datastore.ErrNoSuchEntity {
+				return nil, errMissingAuthToken
+			}
 			return nil, err
 		}
 
-		// no token found in the db either, user needs to sign in
-		if token == nil {
-			return nil, errMissingAuthToken
-		}
-
 		// add the token to memcache
-		tokenDetails, err = a.setCacheToken(c, token.Key.Parent(), token)
+		tokenDetails, err = a.setCacheToken(c, token.Key.Parent(), &token)
 		if err != nil {
 			return nil, err
 		}
@@ -185,8 +251,5 @@ func (a *AuthMiddleware) getNewToken(c context.Context, accountKey *datastore.Ke
 		return nil, errors.New("account key is required to create a token")
 	}
 
-	token := a.tokenSvc.NewToken()
-	_, err := a.tokenSvc.AddToken(c, accountKey, token)
-
-	return token, err
+	return TokenStore.Create(c, accountKey)
 }

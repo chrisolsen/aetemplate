@@ -1,7 +1,5 @@
 # AppEngine Go Template
 
-# DEPRECATED: This repo has been merged into github.com/chrisolsen/ae
-
 Boilerplate template for my typical AppEngine apps.
 
 ## Included Functionality
@@ -23,7 +21,7 @@ Boilerplate template for my typical AppEngine apps.
 
 1. Open bash shell run `certbot-auto certonly -a manual -d my-domain.com -d www.my-domain.com`
 2. Follow the steps to verify domain (see the app.yml and app.go file for existing handlers used to verify ownership)
-3. Navgate to `/etc/letsencrypt/live/rallyup.io`. (You will need to `sudo su` to get into `live/..`)
+3. Navgate to `/etc/letsencrypt/live/aetemplate.io`. (You will need to `sudo su` to get into `live/..`)
 4. [Update certs](https://console.cloud.google.com/appengine/settings/certificates?project=[project-id]&serviceId=default) with the new `cert.pem` `privkey_rsa.pem`.
     * Note: The `privkey.pem` must be converted to rsa by `openssl rsa -in privkey.pem -out privkey_rsa.pem` for Appengine to accept it as valid.
 5. Set the full_chain.pem file contents into `PEM encoded X.509 public key certificate` and the above rsa encoded `.pem` content into the `Unencrypted PEM encoded RSA private key`

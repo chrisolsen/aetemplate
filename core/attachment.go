@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/chrisolsen/aeimage"
+	"github.com/chrisolsen/ae/image"
 	uuid "github.com/satori/go.uuid"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine/urlfetch"
@@ -29,21 +29,21 @@ func (ra *Attachment) Bytes() ([]byte, error) {
 	return []byte(data), err
 }
 
-// AttachmentService provides the methods to save to the external storage service
-type AttachmentService struct{}
+// AttachmentStore provides the methods to save to the external storage service
+type AttachmentStore struct{}
 
-// AttachmentServicer makes testing easier
-type AttachmentServicer interface {
+// AttachmentStorer makes testing easier
+type AttachmentStorer interface {
 	CreateWithData(c context.Context, data []byte, contentType string) (*Attachment, error)
 	CreateWithURL(c context.Context, url string) (*Attachment, error)
 }
 
 // CreateWithData saves the passed in data as an attachment
-func (as AttachmentService) CreateWithData(c context.Context, data []byte, contentType string) (*Attachment, error) {
+func (as AttachmentStore) CreateWithData(c context.Context, data []byte, contentType string) (*Attachment, error) {
 	name := uuid.NewV4().String()
 
 	// save image
-	writer, err := aeimage.NewWriter(c, name, contentType)
+	writer, err := image.NewWriter(c, name, contentType)
 	if err != nil {
 		return nil, fmt.Errorf("creating image writer: %v", err)
 	}
@@ -61,7 +61,7 @@ func (as AttachmentService) CreateWithData(c context.Context, data []byte, conte
 
 // CreateWithURL performs an external fetch of the data with the URL and saves
 // the returned data as an attachment
-func (as AttachmentService) CreateWithURL(c context.Context, url string) (*Attachment, error) {
+func (as AttachmentStore) CreateWithURL(c context.Context, url string) (*Attachment, error) {
 	// get image
 	client := urlfetch.Client(c)
 	resp, err := client.Get(url)

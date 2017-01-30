@@ -51,13 +51,12 @@ func TestCredentials_Create(t *testing.T) {
 	// pre-existing data
 	ctx := getContext()
 	accountKey := datastore.NewKey(ctx, "accounts", "foobar", 0, nil)
-	store := newCredentialStore()
 
-	store.Create(ctx, &Credentials{ProviderID: "1234", ProviderName: "facebook"}, accountKey)
-	store.Create(ctx, &Credentials{Username: "jim", Password: "foobar"}, accountKey)
+	CredentialStore.Create(ctx, &Credentials{ProviderID: "1234", ProviderName: "facebook"}, accountKey)
+	CredentialStore.Create(ctx, &Credentials{Username: "jim", Password: "foobar"}, accountKey)
 
 	for _, test := range tests {
-		_, err := store.Create(ctx, test.creds, accountKey)
+		_, err := CredentialStore.Create(ctx, test.creds, accountKey)
 		if test.ok && err != nil {
 			t.Errorf("%s: %v", test.name, err)
 		}

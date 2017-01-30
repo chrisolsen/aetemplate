@@ -16,10 +16,16 @@ type AuthFunc func(c context.Context, creds *Credentials) (*Token, error)
 
 // Authenticate validates that the credentials match an account; if so creates
 // and links a new token to the account
+// POST /v1/auth
+//  {
+//  	"providerName": "facebook",
+//  	"providerId": "users-provider-id",
+//  	"providerToken": "provided-token"
+//  }
 func (s *AuthService) Authenticate(c context.Context, creds *Credentials) (*Token, error) {
 	var err error
-	tokenSvc := TokenService{}
-	accountSvc := AccountService{}
+	tokenStore := NewTokenStore()
+	accountStore := NewAccountStore()
 
 	switch creds.ProviderName {
 	case "facebook":
@@ -31,13 +37,12 @@ func (s *AuthService) Authenticate(c context.Context, creds *Credentials) (*Toke
 		return nil, fmt.Errorf("authenticate: %v", err)
 	}
 
-	accountKey, err := accountSvc.GetAccountKeyByCredentials(c, creds)
+	accountKey, err := accountStore.GetAccountKeyByCredentials(c, creds)
 	if err != nil {
 		return nil, fmt.Errorf("getting account key by credentials: %v", err)
 	}
 
-	token := tokenSvc.NewToken()
-	_, err = tokenSvc.AddToken(c, accountKey, token)
+	token, err := tokenStore.Create(c, accountKey)
 	if err != nil {
 		return nil, err
 	}

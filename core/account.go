@@ -2,12 +2,12 @@ package core
 
 import (
 	"errors"
-	"strings"
+	"fmt"
 	"time"
 
-	"github.com/chrisolsen/aestore"
+	"github.com/chrisolsen/ae/model"
+	"github.com/chrisolsen/ae/store"
 	"github.com/chrisolsen/async"
-	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine/datastore"
 )
@@ -23,7 +23,7 @@ type AccountPayload struct {
 
 // Account model
 type Account struct {
-	Model
+	model.Base
 
 	FirstName string `json:"firstName" datastore:",noindex"`
 	LastName  string `json:"lastName" datastore:",noindex"`
@@ -35,64 +35,50 @@ type Account struct {
 	Email     string `json:"email"`
 
 	Photo Attachment `json:"photo"`
-
-	// lowercased attributes for searches
-	FirstNameFilter string `json:"-"`
-	LastNameFilter  string `json:"-"`
-	NameFilter      string `json:"-"`
 }
 
-// Load - PropertyLoadSaver interface
-func (a *Account) Load(ps []datastore.Property) error {
-	if err := datastore.LoadStruct(a, ps); err != nil {
-		switch err.(type) {
-		case *datastore.ErrFieldMismatch:
-			return nil
-		default:
-			return err
+type AccountStore struct {
+	store.Base
+}
+
+func NewAccountStore() AccountStore {
+	s := AccountStore{}
+	s.TableName = "accounts"
+	return s
+}
+
+// Create creates a new account and creates its default subscriptions
+func (s *AccountStore) Create(c context.Context, creds *Credentials, account *Account) (*datastore.Key, error) {
+	var err error
+	var accountKey *datastore.Key
+	var cStore = NewCredentialStore()
+	err = datastore.RunInTransaction(c, func(tc context.Context) error {
+		accountKey, err = s.Base.Create(tc, account, nil)
+		if err != nil {
+			return fmt.Errorf("failed to create account: %v", err)
 		}
-	}
-	return nil
-}
 
-// Save - PropertyLoadSaver interface
-func (a *Account) Save() ([]datastore.Property, error) {
-	a.FirstNameFilter = strings.ToLower(a.FirstName)
-	a.LastNameFilter = strings.ToLower(a.LastName)
-	a.NameFilter = strings.ToLower(a.Name)
-	return datastore.SaveStruct(a)
-}
+		_, err = cStore.Create(tc, creds, accountKey)
+		if err != nil {
+			return fmt.Errorf("failed to create credentials: %v", err)
+		}
 
-// AccountService contains logic methods called on from the api handlers
-type AccountService struct{}
+		return nil
+	}, &datastore.TransactionOptions{XG: true})
 
-// EncryptPassword converts the raw password to a brcypt hash
-func (s *AccountService) EncryptPassword(password string) (string, error) {
-	b, err := bcrypt.GenerateFromPassword([]byte(password), 10)
-	return string(b), err
-}
-
-// ValidatePassword checks that the saved hash and raw password hash match
-func (s *AccountService) ValidatePassword(hash, password string) error {
-	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-}
-
-// GetAllAccounts fetches a paginated list of all the accounts
-func (s *AccountService) GetAllAccounts(c context.Context, offset, limit int) ([]*Account, error) {
-	store := accountStore{}
-	return store.GetAllAccounts(c, offset, limit)
+	return accountKey, nil
 }
 
 // GetAccountKeyByCredentials fetches the account matching the auth provider credentials
-func (s *AccountService) GetAccountKeyByCredentials(c context.Context, creds *Credentials) (*datastore.Key, error) {
+func (s *AccountStore) GetAccountKeyByCredentials(c context.Context, creds *Credentials) (*datastore.Key, error) {
 	var err error
-	cstore := newCredentialStore()
+	cstore := NewCredentialStore()
 	// on initial signup the account key will exist within the credentials
 	if creds.AccountKey != nil {
 		var accountCreds []*Credentials
-		_, err = cstore.GetByParent(c, creds.AccountKey, &accountCreds, nil)
-		if err != nil || len(accountCreds) == 0 {
-			return nil, errors.New("failed to find credentials by parent account")
+		_, err = cstore.GetByParent(c, creds.AccountKey, &accountCreds)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find credentials by parent account: %v", err)
 		}
 		// validate credentials
 		for _, ac := range accountCreds {
@@ -110,7 +96,7 @@ func (s *AccountService) GetAccountKeyByCredentials(c context.Context, creds *Cr
 
 	// by username
 	var userNameCreds []*Credentials
-	_, err = cstore.GetByField(c, "Username =", creds.Username, &userNameCreds, nil)
+	_, err = cstore.GetByUsername(c, creds.Username, &userNameCreds)
 	if err != nil {
 		return nil, err
 	}
@@ -119,24 +105,15 @@ func (s *AccountService) GetAccountKeyByCredentials(c context.Context, creds *Cr
 		return nil, errors.New("unable to find unique credentials")
 	}
 
-	err = s.ValidatePassword(userNameCreds[0].Password, creds.Password)
+	crypt := Crypt{}
+	err = crypt.Validate(userNameCreds[0].Password, creds.Password)
 	if err != nil {
 		return nil, err
 	}
 	return userNameCreds[0].Key.Parent(), nil
 }
 
-type accountStore struct {
-	aestore.Base
-}
-
-func newAccountStore() accountStore {
-	s := accountStore{}
-	s.TableName = "accounts"
-	return s
-}
-
-func (s *accountStore) GetAllAccounts(c context.Context, offset, limit int) ([]*Account, error) {
+func (s *AccountStore) GetAllAccounts(c context.Context, offset, limit int) ([]*Account, error) {
 	var accounts []*Account
 	doneChan := make(chan bool)
 	errChan := make(chan error)
@@ -154,7 +131,9 @@ func (s *accountStore) GetAllAccounts(c context.Context, offset, limit int) ([]*
 		go func(key *datastore.Key) {
 			var a Account
 			if err := s.Get(c, key, &a); err != nil {
-				errChan <- err
+				if err != datastore.ErrNoSuchEntity {
+					errChan <- err
+				}
 				return
 			}
 			dataChan <- a

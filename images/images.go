@@ -6,14 +6,14 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/chrisolsen/aehandler"
-	"github.com/chrisolsen/aeimage"
-	"github.com/chrisolsen/quincy"
+	"github.com/chrisolsen/ae/handler"
+	"github.com/chrisolsen/ae/image"
+	"github.com/chrisolsen/ae/que"
 	"golang.org/x/net/context"
 )
 
 func init() {
-	q := quincy.New()
+	q := que.New()
 
 	http.Handle("/images.v1/images", q.Handle(ImageHandler{}))
 	http.HandleFunc("/_ah/start", q.Then(func(c context.Context, w http.ResponseWriter, r *http.Request) {
@@ -22,7 +22,7 @@ func init() {
 }
 
 type ImageHandler struct {
-	aehandler.Base
+	handler.Base
 }
 
 func (h ImageHandler) ServeHTTP(c context.Context, w http.ResponseWriter, r *http.Request) {
@@ -63,7 +63,7 @@ func (h *ImageHandler) fetch() {
 	if h.Req.TLS == nil {
 		scheme = "http"
 	}
-	url, err := aeimage.SizedURL(h.Ctx, scheme, name, width, height)
+	url, err := image.SizedURL(h.Ctx, scheme, name, width, height)
 	if err != nil {
 		h.Abort(http.StatusInternalServerError, fmt.Errorf("failed to get sized image: %v", err))
 		return

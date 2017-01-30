@@ -6,24 +6,22 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/chrisolsen/aehandler"
-	"gitlab.com/coachchris/core"
+	"github.com/chrisolsen/ae/handler"
+	"github.com/chrisolsen/aetemplate/core"
 	"golang.org/x/net/context"
 	"google.golang.org/appengine/datastore"
 )
 
 type AttachmentHandler struct {
-	aehandler.Base
+	handler.Base
 }
 
 func (h AttachmentHandler) ServeHTTP(c context.Context, w http.ResponseWriter, r *http.Request) {
 	h.Bind(c, w, r)
 
-	svc := core.AttachmentService{}
-
 	switch r.Method {
 	case http.MethodPost:
-		h.create(svc)
+		h.create()
 	case http.MethodOptions:
 		h.ValidateOrigin([]string{"https://your_app.com"})
 	default:
@@ -38,9 +36,10 @@ type AttachmentBody struct {
 }
 
 // POST /attachments?parent={key}
-func (h *AttachmentHandler) create(svc core.AttachmentServicer) {
+func (h *AttachmentHandler) create() {
 	var body AttachmentBody
 	var err error
+	svc := core.AttachmentStore{}
 
 	err = json.NewDecoder(h.Req.Body).Decode(&body)
 	if err != nil {
@@ -82,13 +81,13 @@ func (h *AttachmentHandler) create(svc core.AttachmentServicer) {
 }
 
 func (h *AttachmentHandler) associateToAccount(key *datastore.Key, photo *core.Attachment) error {
-	svc := core.AccountService{}
-	a, err := svc.GetAccount(h.Ctx, key)
+	var a core.Account
+	err := AccountStore.Get(h.Ctx, key, &a)
 	if err != nil {
 		return fmt.Errorf("getting account: %v", err)
 	}
 	a.Photo = *photo
-	err = svc.Update(h.Ctx, a)
+	err = AccountStore.Update(h.Ctx, a.Key, &a)
 	if err != nil {
 		return fmt.Errorf("updating account: %v", err)
 	}

@@ -1,0 +1,25 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "HUXE+Nrcau8FSaVEvPYHMvDjxOE=",
+			"path": "github.com/satori/go.uuid",
+			"revision": "b061729afc07e77a8aa4fad0a2fd840958f1942a",
+			"revisionTime": "2016-09-27T10:08:44Z"
+		},
+		{
+			"checksumSHA1": "vE43s37+4CJ2CDU6TlOUOYE0K9c=",
+			"path": "golang.org/x/crypto/bcrypt",
+			"revision": "a59c127441a8ae2ad9b0fb300ab36a6558bba697",
+			"revisionTime": "2017-01-17T17:15:27Z"
+		},
+		{
+			"checksumSHA1": "JsJdKXhz87gWenMwBeejTOeNE7k=",
+			"path": "golang.org/x/crypto/blowfish",
+			"revision": "a59c127441a8ae2ad9b0fb300ab36a6558bba697",
+			"revisionTime": "2017-01-17T17:15:27Z"
+		}
+	],
+	"rootPath": "github.com/chrisolsen/aetemplate/core"
+}

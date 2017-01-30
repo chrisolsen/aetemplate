@@ -5,22 +5,22 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/chrisolsen/aehandler"
-	"gitlab.com/coachchris/core"
+	"github.com/chrisolsen/ae/handler"
+	"github.com/chrisolsen/aetemplate/core"
 	"golang.org/x/net/context"
 )
 
+// SignupHandler .
 type SignupHandler struct {
-	aehandler.Base
+	handler.Base
 }
 
 func (h SignupHandler) ServeHTTP(c context.Context, w http.ResponseWriter, r *http.Request) {
 	h.Bind(c, w, r)
-	svc := core.AccountService{}
 
 	switch r.Method {
 	case http.MethodPost:
-		h.createAccount(svc.Create)
+		h.createAccount()
 	case http.MethodOptions:
 		h.ValidateOrigin([]string{"http://your_domain.com"})
 	default:
@@ -43,7 +43,7 @@ func (h SignupHandler) ServeHTTP(c context.Context, w http.ResponseWriter, r *ht
 // 			password: "foobario"
 //  	}
 //  }
-func (h *SignupHandler) createAccount(createAccount core.AccountCreateFunc) {
+func (h *SignupHandler) createAccount() {
 	type data struct {
 		Account     core.Account     `json:"account"`
 		Credentials core.Credentials `json:"credentials"`
@@ -56,11 +56,17 @@ func (h *SignupHandler) createAccount(createAccount core.AccountCreateFunc) {
 		return
 	}
 
-	input.Account.Key, err = createAccount(h.Ctx, &input.Credentials, &input.Account)
+	accountKey, err := AccountStore.Create(h.Ctx, &input.Credentials, &input.Account)
 	if err != nil {
 		h.Abort(http.StatusInternalServerError, fmt.Errorf("creating account: %v", err))
 		return
 	}
 
-	h.ToJSONWithStatus(input.Account, http.StatusCreated)
+	token, err := TokenStore.Create(h.Ctx, accountKey)
+	if err != nil {
+		h.Abort(http.StatusInternalServerError, fmt.Errorf("creating token: %v", err))
+		return
+	}
+
+	h.ToJSONWithStatus(token, http.StatusCreated)
 }
