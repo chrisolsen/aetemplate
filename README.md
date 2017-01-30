@@ -1,5 +1,7 @@
 # AppEngine Go Template
 
+# DEPRECATED: This repo has been merged into github.com/chrisolsen/ae
+
 Boilerplate template for my typical AppEngine apps.
 
 ## Included Functionality
